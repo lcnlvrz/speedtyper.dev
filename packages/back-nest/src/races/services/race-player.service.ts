@@ -121,6 +121,8 @@ export class RacePlayer {
   }
 
   hasCompletedRace(): boolean {
+    console.log('this.progress', this.progress);
+
     return this.progress === 100;
   }
 

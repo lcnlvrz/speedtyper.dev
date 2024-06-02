@@ -13,7 +13,9 @@ import { AuthModule } from './auth/auth.module';
 @Module({
   imports: [
     ChallengesModule,
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     GithubConnectorModule,
     PostgresModule,
     ProjectsModule,

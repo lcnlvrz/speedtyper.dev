@@ -43,4 +43,8 @@ export class ProjectService {
       .execute();
     return selectedLanguages.map((l: any) => l.language);
   }
+
+  get repo() {
+    return this.projectRepository;
+  }
 }

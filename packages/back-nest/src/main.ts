@@ -9,6 +9,7 @@ import { SessionAdapter } from './sessions/session.adapter';
 import { getSessionMiddleware } from './sessions/session.middleware';
 import { json } from 'express';
 import { AllExceptionsFilter } from './filters/exception.filter';
+import { minimatch } from 'minimatch';
 
 const GLOBAl_API_PREFIX = 'api';
 
@@ -33,6 +34,8 @@ async function runServer() {
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalPipes(new ValidationPipe());
   await app.listen(port);
+
+  console.log('matches', minimatch('page.tsx', '*.tsx'));
 }
 
 runServer();

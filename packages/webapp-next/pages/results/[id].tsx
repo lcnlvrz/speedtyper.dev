@@ -103,7 +103,7 @@ function ResultPage() {
                 <ShareResultButton url={url} />
                 <TweetResult url={url} wpm={cpmToWPM(data.cpm)} />
               </div>
-              <CodeArea
+              {/* <CodeArea
                 staticHeigh={false}
                 filePath={truncateFile(data.challenge.path)}
                 focused={true}
@@ -111,7 +111,7 @@ function ResultPage() {
                 <span className="text-xs sm:text-sm tracking-tight leading-1">
                   {data.challenge.content}
                 </span>
-              </CodeArea>
+              </CodeArea> */}
               <div className="w-full flex justify-between items-center">
                 <ActionButton
                   text="play"

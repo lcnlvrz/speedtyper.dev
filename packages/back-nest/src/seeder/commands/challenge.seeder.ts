@@ -1,8 +1,14 @@
+import { ConfigService } from '@nestjs/config';
+import { Octokit as OctokitInstance } from '@octokit/core';
 import { Command, CommandRunner } from 'nest-commander';
-import { Challenge } from 'src/challenges/entities/challenge.entity';
+import { Octokit } from 'octokit';
 import { ChallengeService } from 'src/challenges/services/challenge.service';
-import { Project } from 'src/projects/entities/project.entity';
 import { ProjectService } from 'src/projects/services/project.service';
+import { minimatch } from 'minimatch';
+import { Challenge } from 'src/challenges/entities/challenge.entity';
+import pRetry from 'p-retry';
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 @Command({
   name: 'seed-challenges',
@@ -10,89 +16,217 @@ import { ProjectService } from 'src/projects/services/project.service';
   options: {},
 })
 export class ProjectSeedRunner extends CommandRunner {
+  private projectScanningList: {
+    repository: string;
+    patterns: string[];
+    maxLOC?: number;
+  }[] = [
+    {
+      repository: 'shadcn-ui/taxonomy',
+      patterns: ['*.tsx'],
+      maxLOC: 100,
+    },
+    // {
+    //   repository: 'cockroachdb/cockroach',
+    //   patterns: ['*.go'],
+    // },
+  ];
+
+  private treeDepth = 100;
+
   constructor(
     private projectService: ProjectService,
     private challengeService: ChallengeService,
+    private readonly configService: ConfigService,
   ) {
     super();
   }
+
   async run(): Promise<void> {
-    const project = this.project_factory();
-    await this.projectService.bulkUpsert([project]);
-    const challenges = this.challenges_factory(project);
-    await this.challengeService.upsert(challenges);
-  }
+    const octokit: OctokitInstance = new Octokit({
+      auth: this.configService.get('GITHUB_ACCESS_TOKEN'),
+    });
 
-  project_factory() {
-    const project = new Project();
-    project.id = '98dac57c-516e-485f-872a-4b9f6e1ad566';
-    project.fullName = 'etcd-io/etcd';
-    project.htmlUrl = 'https://github.com/etcd-io/etcd';
-    project.language = 'Go';
-    project.stars = 41403;
-    project.licenseName = 'Apache License 2.0';
-    project.ownerAvatar =
-      'https://avatars.githubusercontent.com/u/41972792?v=4';
-    project.defaultBranch = 'main';
-    project.syncedSha = '2d638e0fd2c1d91c9c4323591bb1041b594e28fa';
-    return project;
-  }
+    for (const projectScanning of this.projectScanningList) {
+      const [owner, repo] = projectScanning.repository.split('/');
 
-  challenges_factory(project: Project) {
-    const challenges = [];
-    const firstChallenge = new Challenge();
-    challenges.push(firstChallenge);
-    firstChallenge.id = 'b4b6eec5-333c-4c77-a648-1b0884ae5ad0';
-    firstChallenge.sha = 'fa3011cb39ac784a88da3667b729f3a79f5f22c3';
-    firstChallenge.treeSha = '2d638e0fd2c1d91c9c4323591bb1041b594e28fa';
-    firstChallenge.path = 'server/etcdserver/api/rafthttp/transport.go';
-    firstChallenge.language = 'go';
-    firstChallenge.url =
-      'https://github.com/etcd-io/etcd/blob/2d638e0fd2c1d91c9c4323591bb1041b594e28fa/server/etcdserver/api/rafthttp/transport.go/#L425';
-    firstChallenge.content =
-      'func (t *Transport) Pause() {\n' +
-      '\tt.mu.RLock()\n' +
-      '\tdefer t.mu.RUnlock()\n' +
-      '\tfor _, p := range t.peers {\n' +
-      '\t\tp.(Pausable).Pause()\n' +
-      '\t}\n' +
-      '}';
-    firstChallenge.project = project;
+      const upsertProject = async () => {
+        const metadata = await octokit.request('GET /repos/{owner}/{repo}', {
+          owner,
+          repo,
+        });
 
-    const secondChallenge = new Challenge();
-    challenges.push(secondChallenge);
-    secondChallenge.id = '8ebf6be1-7f7c-4edf-a622-97b0024636e8';
-    secondChallenge.sha = '69ecc631471975fcb4d207f85a57baf2b5a79460';
-    secondChallenge.treeSha = '2d638e0fd2c1d91c9c4323591bb1041b594e28fa';
-    secondChallenge.language = 'go';
-    secondChallenge.path = 'client/v3/retry.go';
-    secondChallenge.url =
-      'https://github.com/etcd-io/etcd/blob/2d638e0fd2c1d91c9c4323591bb1041b594e28fa/client/v3/retry.go/#L160';
-    secondChallenge.content =
-      'func RetryClusterClient(c *Client) pb.ClusterClient {\n' +
-      '\treturn &retryClusterClient{\n' +
-      '\t\tcc: pb.NewClusterClient(c.conn),\n' +
-      '\t}\n' +
-      '}';
-    secondChallenge.project = project;
+        const existentProject = await this.projectService.repo.findOne({
+          where: {
+            fullName: projectScanning.repository,
+          },
+        });
 
-    const thirdChallenge = new Challenge();
-    challenges.push(thirdChallenge);
-    thirdChallenge.id = '19174a2e-9220-40c8-832a-7effd351a68b';
-    thirdChallenge.sha = 'ea19cf0181bbedbfc65bce9cfce26eb3558cb9ee';
-    thirdChallenge.treeSha = '2d638e0fd2c1d91c9c4323591bb1041b594e28fa';
-    thirdChallenge.path = 'pkg/schedule/schedule.go';
-    thirdChallenge.language = 'go';
-    thirdChallenge.url =
-      'https://github.com/etcd-io/etcd/blob/2d638e0fd2c1d91c9c4323591bb1041b594e28fa/pkg/schedule/schedule.go/#L135';
-    thirdChallenge.content =
-      'func (f *fifo) Finished() int {\n' +
-      '\tf.finishCond.L.Lock()\n' +
-      '\tdefer f.finishCond.L.Unlock()\n' +
-      '\treturn f.finished\n' +
-      '}';
-    thirdChallenge.project = project;
+        if (existentProject) {
+          console.log(
+            `Project ${projectScanning.repository} already exists. Early exit`,
+          );
 
-    return challenges;
+          return {
+            project: existentProject,
+            metadata,
+          };
+        }
+
+        const project = await this.projectService.repo.save(
+          this.projectService.repo.create({
+            language: this.challengeService.completeLanguageToName(
+              metadata.data.language,
+            ),
+            fullName: projectScanning.repository,
+            htmlUrl: metadata.data.html_url,
+            stars: metadata.data.stargazers_count,
+            licenseName: metadata.data.license?.name ?? 'Other',
+            ownerAvatar: metadata.data.owner.avatar_url,
+            defaultBranch: metadata.data.default_branch,
+            syncedSha: metadata.data.default_branch,
+          }),
+        );
+
+        console.log(
+          `Project ${projectScanning.repository} created. Project ID: ${project.id}`,
+        );
+
+        return {
+          project,
+          metadata,
+        };
+      };
+
+      const { project, metadata } = await upsertProject();
+
+      let treeIteration = 0;
+
+      const iterateTree = async (treeSha: string) => {
+        if (treeIteration > this.treeDepth) {
+          console.log('treeIteration > this.treeDepth');
+          return;
+        }
+
+        treeIteration++;
+
+        const tree = await octokit.request(
+          'GET /repos/{owner}/{repo}/git/trees/{tree_sha}',
+          {
+            owner,
+            repo,
+            tree_sha: treeSha,
+          },
+        );
+
+        for (const file of tree.data.tree) {
+          if (file.type === 'tree' && file.sha) {
+            await iterateTree(file.sha);
+            continue;
+          }
+
+          console.log('file', JSON.stringify(file, null, 4));
+
+          const matchedPattern = projectScanning.patterns.find((pattern) =>
+            minimatch(file.path, pattern),
+          );
+
+          if (matchedPattern) {
+            console.log(
+              `File ${file.path} matches the pattern ${matchedPattern}`,
+            );
+
+            const fetchFileContents = async () => {
+              const response = await fetch(file.url, {
+                headers: {
+                  Authorization: `Bearer ${this.configService.get(
+                    'GITHUB_ACCESS_TOKEN',
+                  )}`,
+                },
+              }).then(async (res) => await res.json());
+
+              if (!response.content) {
+                throw new Error('No content found. Rate limit exceeded');
+              }
+
+              return Buffer.from(response.content, 'base64').toString('utf-8');
+            };
+
+            const contents = await pRetry(fetchFileContents, {
+              //@ts-ignore
+              retries: 5,
+              onFailedAttempt: async () => {
+                console.log(
+                  `Received a 429 error for file ${file.path}. Retrying in 1 second`,
+                );
+                await sleep(1000);
+              },
+            });
+
+            const linesCount = contents.split('\n').length;
+
+            if (projectScanning.maxLOC && linesCount > projectScanning.maxLOC) {
+              console.log(
+                `File ${file.path} exceeds the max LOC of ${projectScanning.maxLOC}`,
+              );
+
+              continue;
+            }
+
+            const upsertChallenge = async () => {
+              const existentChallenge =
+                await this.challengeService.repo.findOne({
+                  where: {
+                    path: file.path,
+                    projectId: project.id,
+                  },
+                });
+
+              if (existentChallenge) {
+                console.log(
+                  `Challenge ${file.path} already exists. Early return`,
+                );
+                return existentChallenge;
+              }
+
+              const challenge = (await this.challengeService.repo.save(
+                //@ts-ignore
+                this.challengeService.repo.create({
+                  path: file.path,
+                  language: this.challengeService.completeLanguageToName(
+                    metadata.data.language!,
+                  ),
+                  url: metadata.data.html_url + file.path,
+                  content: contents,
+                  project,
+                  sha: file.sha,
+                  treeSha: treeSha,
+                }),
+              )) as any as Challenge;
+
+              console.log(
+                `Challenge ${file.path} created. Challenge ID: ${challenge.id}`,
+              );
+
+              return challenge;
+            };
+
+            const challenge = await upsertChallenge();
+
+            console.log(
+              `Challenge ${file.path} created. Challenge ID: ${challenge.id}`,
+            );
+
+            continue;
+          }
+
+          if (!matchedPattern) {
+            console.log(`File ${file.path} does not match the pattern`);
+          }
+        }
+      };
+
+      await iterateTree(metadata.data.default_branch);
+    }
   }
 }

@@ -16,10 +16,11 @@ export function CodeArea({
   staticHeigh = true,
 }: CodeAreaProps) {
   const countDown = useGameStore((state) => state.countdown);
+
   return (
     <div
       className={`${
-        staticHeigh ? "h-[250px] sm:h-[420px]" : ""
+        staticHeigh ? "h-full " : ""
       } bg-dark-lake text-faded-gray flex-shrink tracking-tight sm:tracking-wider rounded-xl p-4 text-xs sm:text-2xl w-full`}
       style={{
         fontFamily: "Fira Code",
@@ -39,7 +40,14 @@ export function CodeArea({
 
       <CodeAreaHeader filePath={filePath} />
       <pre className={focused ? "blur-none opacity-100" : "blur-sm opacity-40"}>
-        <code>{children}</code>
+        <code
+          style={{
+            whiteSpace: "break-spaces",
+          }}
+          className="w-full break-words"
+        >
+          {children}
+        </code>
       </pre>
     </div>
   );

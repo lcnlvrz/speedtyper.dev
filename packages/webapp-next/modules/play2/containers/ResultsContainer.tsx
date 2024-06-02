@@ -93,6 +93,9 @@ export function DailyStreak() {
 
 export function ResultsContainer() {
   const result = useGameStore((state) => state.myResult);
+
+  console.log("result", result);
+
   // TODO: Show loading indicator here
   if (!result) return null;
   const cpm = result.cpm;

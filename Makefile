@@ -9,10 +9,12 @@ run-backend-dev:
 run-dev-db:
 	docker compose -f ./packages/back-nest/docker-compose.yml up -d
 
-run-seed-codesources:
-	yarn --cwd ./packages/back-nest command seed-challenges
+run-dev:
+	npm i -g concurrently
+	concurrently "cd ./packages/back-nest && npm run start:dev" "cd ./packages/webapp-next && npm run dev"
 
-# webapp
+run-seed-codesources:
+	cd ./packages/back-nest && npm run command seed-challenges
 
 install-webapp-dependencies:
 	yarn --cwd ./packages/webapp-next

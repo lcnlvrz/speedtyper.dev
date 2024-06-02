@@ -6,6 +6,7 @@ import {
   ManyToOne,
   Column,
   OneToMany,
+  JoinColumn,
 } from 'typeorm';
 import { UnsyncedFile } from './unsynced-file.entity';
 import { GithubAPI } from 'src/connectors/github/services/github-api';
@@ -20,16 +21,28 @@ export class Challenge {
   sha: string;
   @Column({ select: false })
   treeSha: string;
+
   @Column({ nullable: false })
   language: string;
+
   @Column()
   path: string;
+
   @Column({ unique: true })
   url: string;
-  @Column({ unique: true })
+
+  @Column({ type: 'text' })
   content: string;
+
   @ManyToOne(() => Project, (project) => project.files)
+  @JoinColumn({
+    name: 'projectId',
+  })
   project: Project;
+
+  @Column()
+  projectId: string;
+
   @OneToMany(() => Result, (result) => result.user)
   results: Result[];
 

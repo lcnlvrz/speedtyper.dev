@@ -4,6 +4,22 @@ import { Repository } from 'typeorm';
 import { Challenge } from '../entities/challenge.entity';
 import { LanguageDTO } from '../entities/language.dto';
 
+export const allLanguages = {
+  js: 'JavaScript',
+  ts: 'TypeScript',
+  rs: 'Rust',
+  c: 'C',
+  java: 'Java',
+  cpp: 'C++',
+  go: 'Go',
+  lua: 'Lua',
+  php: 'PHP',
+  py: 'Python',
+  rb: 'Ruby',
+  cs: 'C-Sharp',
+  scala: 'Scala',
+};
+
 @Injectable()
 export class ChallengeService {
   private static UpsertOptions = {
@@ -14,6 +30,10 @@ export class ChallengeService {
     @InjectRepository(Challenge)
     private challengeRepository: Repository<Challenge>,
   ) {}
+
+  get repo() {
+    return this.challengeRepository;
+  }
 
   async upsert(challenges: Challenge[]): Promise<void> {
     await this.challengeRepository.upsert(
@@ -28,7 +48,7 @@ export class ChallengeService {
       .leftJoinAndSelect('challenge.project', 'project');
 
     if (language) {
-      query = query.where('challenge.language = :language', {
+      query = query.where('LOWER(challenge.language) = :language', {
         language,
       });
     }
@@ -55,27 +75,22 @@ export class ChallengeService {
       }),
     );
 
+    console.log('languages', languages);
+
     languages.sort((a, b) => a.name.localeCompare(b.name));
 
     return languages;
   }
 
   private getLanguageName(language: string): string {
-    const allLanguages = {
-      js: 'JavaScript',
-      ts: 'TypeScript',
-      rs: 'Rust',
-      c: 'C',
-      java: 'Java',
-      cpp: 'C++',
-      go: 'Go',
-      lua: 'Lua',
-      php: 'PHP',
-      py: 'Python',
-      rb: 'Ruby',
-      cs: 'C-Sharp',
-      scala: 'Scala',
-    };
     return allLanguages[language];
+  }
+
+  completeLanguageToName(language: string): string {
+    for (const lang in allLanguages) {
+      if (allLanguages[lang] === language) {
+        return lang;
+      }
+    }
   }
 }
