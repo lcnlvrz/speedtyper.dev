@@ -35,7 +35,9 @@ async function runServer() {
   app.useGlobalPipes(new ValidationPipe());
   await app.listen(port);
 
-  console.log('matches', minimatch('page.tsx', '*.tsx'));
+  const match = minimatch('dsds.spec.js', '!*.spec.ts');
+
+  console.log('match', match);
 }
 
 runServer();

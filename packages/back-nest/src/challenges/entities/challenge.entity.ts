@@ -28,6 +28,11 @@ export class Challenge {
   @Column()
   path: string;
 
+  @Column({
+    nullable: true,
+  })
+  loc?: number;
+
   @Column({ unique: true })
   url: string;
 

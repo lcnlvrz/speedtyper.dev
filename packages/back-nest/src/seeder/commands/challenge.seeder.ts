@@ -7,6 +7,7 @@ import { ProjectService } from 'src/projects/services/project.service';
 import { minimatch } from 'minimatch';
 import { Challenge } from 'src/challenges/entities/challenge.entity';
 import pRetry from 'p-retry';
+import * as stripComments from 'strip-comments';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -22,17 +23,13 @@ export class ProjectSeedRunner extends CommandRunner {
     maxLOC?: number;
   }[] = [
     {
-      repository: 'shadcn-ui/taxonomy',
-      patterns: ['*.tsx'],
-      maxLOC: 100,
+      repository: 'nocobase/nocobase',
+      patterns: ['*.ts', '*.tsx', '!*.spec.ts', '!*.test.ts', '!*.spec.js'],
+      maxLOC: 30,
     },
-    // {
-    //   repository: 'cockroachdb/cockroach',
-    //   patterns: ['*.go'],
-    // },
   ];
 
-  private treeDepth = 100;
+  private treeDepth = 300;
 
   constructor(
     private projectService: ProjectService,
@@ -127,9 +124,23 @@ export class ProjectSeedRunner extends CommandRunner {
 
           console.log('file', JSON.stringify(file, null, 4));
 
-          const matchedPattern = projectScanning.patterns.find((pattern) =>
+          const negatePatterns = projectScanning.patterns.filter((pattern) =>
+            pattern.startsWith('!'),
+          );
+
+          const affirmativePatterns = projectScanning.patterns.filter(
+            (pattern) => !pattern.startsWith('!'),
+          );
+
+          const affirmativePatternPass = affirmativePatterns.some((pattern) =>
             minimatch(file.path, pattern),
           );
+
+          const negatePatternPass = negatePatterns.every((negatePattern) =>
+            minimatch(file.path, negatePattern),
+          );
+
+          const matchedPattern = affirmativePatternPass && !!negatePatternPass;
 
           if (matchedPattern) {
             console.log(
@@ -152,15 +163,22 @@ export class ProjectSeedRunner extends CommandRunner {
               return Buffer.from(response.content, 'base64').toString('utf-8');
             };
 
-            const contents = await pRetry(fetchFileContents, {
-              //@ts-ignore
-              retries: 5,
-              onFailedAttempt: async () => {
-                console.log(
-                  `Received a 429 error for file ${file.path}. Retrying in 1 second`,
-                );
-                await sleep(1000);
+            const contentsWithPotentialComments = await pRetry(
+              fetchFileContents,
+              {
+                //@ts-ignore
+                retries: 60,
+                onFailedAttempt: async () => {
+                  console.log(
+                    `Received a 429 error for file ${file.path}. Retrying in 1 second`,
+                  );
+                  await sleep(1000);
+                },
               },
+            );
+
+            const contents = stripComments(contentsWithPotentialComments, {
+              preserveNewlines: false,
             });
 
             const linesCount = contents.split('\n').length;
@@ -192,6 +210,7 @@ export class ProjectSeedRunner extends CommandRunner {
               const challenge = (await this.challengeService.repo.save(
                 //@ts-ignore
                 this.challengeService.repo.create({
+                  loc: linesCount,
                   path: file.path,
                   language: this.challengeService.completeLanguageToName(
                     metadata.data.language!,
